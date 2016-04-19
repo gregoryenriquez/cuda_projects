@@ -17,53 +17,29 @@ __device__ bool MATCHES[MAX_TEXT_BLOCKS];
 /**
  * CUDA Kernel Device code
  *
- * Computes the vector addition of A and B into C. The 3 vectors have the same
- * number of elements numElements.
+ * Searches for a given phrase in the item reviews for a given file, lines must be prefixed with 'review/text'.
  */
-__global__ void
-vectorAdd(const float *A, const float *B, float *C, int numElements)
-{
-    int i = blockDim.x * blockIdx.x + threadIdx.x;
-
-    if (i < numElements)
-    {
-        C[i] = A[i] + B[i];
-    }
-}
-
 __global__ void wordSearch(int itemsInBuffer, char* phrase, int phraseLen) {
-    printf("wordSearch() is called, blockIdx is: %d ", blockIdx.x);
-    printf("phrase is: %s ", phrase);
-    printf("TEXT_BUFFER[%d] is: %s ", blockIdx.x, TEXT_BUFFER[blockIdx.x]);
-    printf("phraseLen is: %d ", phraseLen);
-    int containsMatch = 0;
+    printf("wordSearch() is called, blockIdx is: %d, phrase is %s, phraseLen is %d, TEXT_BUFFER[%d] is: %s, ", 
+            blockIdx.x, phrase, phraseLen, blockIdx.x, TEXT_BUFFER[blockIdx.x]);
 
     if (blockIdx.x < itemsInBuffer) {
         int strLen = 0;
         for (int i = 0; TEXT_BUFFER[blockIdx.x][i] != '\0'; i++) {
             strLen++;
         }
-        printf("blockIdx < itemsInBuffer = true\n");
         for (int charIdx = 0; charIdx < strLen; charIdx++) {
-            // printf("charIdx < strlen(TEXT_BUFFER[%d]) = true\n", blockIdx.x);
             if (TEXT_BUFFER[blockIdx.x][charIdx] == phrase[0]) {
-                printf("TEXT_BUFFER[blockIdx.x][charIdx] == phrase[0] = true\n");
                 int wordLen = 1;
                 charIdx++;
                 while (TEXT_BUFFER[blockIdx.x][charIdx] == phrase[wordLen] && wordLen < phraseLen) {
-                    printf("TEXT_BUFFER[charIdx] == phrase[wordLen] && wordLen < phraseLen = true\n");
                     charIdx++;
                     wordLen++;
                     if (wordLen == phraseLen) {
-                        containsMatch = 1;
                         MATCHES[blockIdx.x] = 1;
-                        printf("MATCHES[blockIdx.x] = %d text is %s\n", MATCHES[blockIdx.x], TEXT_BUFFER[blockIdx.x]);
-                        break;
+                        printf("MATCHES[%d] = %d text is %s\n", blockIdx.x, MATCHES[blockIdx.x], TEXT_BUFFER[blockIdx.x]);
+                        return;
                     }
-                }
-                if (containsMatch == 1) {
-                    printf("Match found in block: %d, \n", blockIdx.x);
-                    return;
                 }
             }
         }
@@ -251,169 +227,8 @@ main(int argc, char **argv)
 
     fclose(file);
     free(matches);
-    // cudaFree(d_text);
-    // cudaFree(d_textLen);
     cudaFree(d_phrase);
     cudaFree(d_phraseLen);
-    // cudaFree(d_textBlocks);
-    // cudaFree(d_matches);
-
-    // Print the vector length to be used, and compute its size
-    int numElements = 50000;
-    size_t size = numElements * sizeof(float);
-    printf("[Vector addition of %d elements]\n", numElements);
-
-    // Allocate the host input vector A
-    float *h_A = (float *)malloc(size);
-
-    // Allocate the host input vector B
-    float *h_B = (float *)malloc(size);
-
-    // Allocate the host output vector C
-    float *h_C = (float *)malloc(size);
-
-    // Verify that allocations succeeded
-    if (h_A == NULL || h_B == NULL || h_C == NULL)
-    {
-        fprintf(stderr, "Failed to allocate host vectors!\n");
-        exit(EXIT_FAILURE);
-    }
-
-    // Initialize the host input vectors
-    for (int i = 0; i < numElements; ++i)
-    {
-        h_A[i] = rand()/(float)RAND_MAX;
-        h_B[i] = rand()/(float)RAND_MAX;
-    }
-
-    // Allocate the device input vector A
-    float *d_A = NULL;
-    err = cudaMalloc((void **)&d_A, size);
-
-    if (err != cudaSuccess)
-    {
-        fprintf(stderr, "Failed to allocate device vector A (error code %s)!\n", cudaGetErrorString(err));
-        exit(EXIT_FAILURE);
-    }
-
-    // Allocate the device input vector B
-    float *d_B = NULL;
-    err = cudaMalloc((void **)&d_B, size);
-
-    if (err != cudaSuccess)
-    {
-        fprintf(stderr, "Failed to allocate device vector B (error code %s)!\n", cudaGetErrorString(err));
-        exit(EXIT_FAILURE);
-    }
-
-    // Allocate the device output vector C
-    float *d_C = NULL;
-    err = cudaMalloc((void **)&d_C, size);
-
-    if (err != cudaSuccess)
-    {
-        fprintf(stderr, "Failed to allocate device vector C (error code %s)!\n", cudaGetErrorString(err));
-        exit(EXIT_FAILURE);
-    }
-
-    // Copy the host input vectors A and B in host memory to the device input vectors in
-    // device memory
-    printf("Copy input data from the host memory to the CUDA device\n");
-    err = cudaMemcpy(d_A, h_A, size, cudaMemcpyHostToDevice);
-
-    if (err != cudaSuccess)
-    {
-        fprintf(stderr, "Failed to copy vector A from host to device (error code %s)!\n", cudaGetErrorString(err));
-        exit(EXIT_FAILURE);
-    }
-
-    err = cudaMemcpy(d_B, h_B, size, cudaMemcpyHostToDevice);
-
-    if (err != cudaSuccess)
-    {
-        fprintf(stderr, "Failed to copy vector B from host to device (error code %s)!\n", cudaGetErrorString(err));
-        exit(EXIT_FAILURE);
-    }
-
-    // Launch the Vector Add CUDA Kernel
-    int threadsPerBlock = 256;
-    int blocksPerGrid =(numElements + threadsPerBlock - 1) / threadsPerBlock;
-    printf("CUDA kernel launch with %d blocks of %d threads\n", blocksPerGrid, threadsPerBlock);
-    vectorAdd<<<blocksPerGrid, threadsPerBlock>>>(d_A, d_B, d_C, numElements);
-    err = cudaGetLastError();
-
-    if (err != cudaSuccess)
-    {
-        fprintf(stderr, "Failed to launch vectorAdd kernel (error code %s)!\n", cudaGetErrorString(err));
-        exit(EXIT_FAILURE);
-    }
-
-    // Copy the device result vector in device memory to the host result vector
-    // in host memory.
-    printf("Copy output data from the CUDA device to the host memory\n");
-    err = cudaMemcpy(h_C, d_C, size, cudaMemcpyDeviceToHost);
-
-    if (err != cudaSuccess)
-    {
-        fprintf(stderr, "Failed to copy vector C from device to host (error code %s)!\n", cudaGetErrorString(err));
-        exit(EXIT_FAILURE);
-    }
-
-    // Verify that the result vector is correct
-    for (int i = 0; i < numElements; ++i)
-    {
-        if (fabs(h_A[i] + h_B[i] - h_C[i]) > 1e-5)
-        {
-            fprintf(stderr, "Result verification failed at element %d!\n", i);
-            exit(EXIT_FAILURE);
-        }
-    }
-
-    printf("Test PASSED\n");
-
-    // Free device global memory
-    err = cudaFree(d_A);
-
-    if (err != cudaSuccess)
-    {
-        fprintf(stderr, "Failed to free device vector A (error code %s)!\n", cudaGetErrorString(err));
-        exit(EXIT_FAILURE);
-    }
-
-    err = cudaFree(d_B);
-
-    if (err != cudaSuccess)
-    {
-        fprintf(stderr, "Failed to free device vector B (error code %s)!\n", cudaGetErrorString(err));
-        exit(EXIT_FAILURE);
-    }
-
-    err = cudaFree(d_C);
-
-    if (err != cudaSuccess)
-    {
-        fprintf(stderr, "Failed to free device vector C (error code %s)!\n", cudaGetErrorString(err));
-        exit(EXIT_FAILURE);
-    }
-
-    // Free host memory
-    free(h_A);
-    free(h_B);
-    free(h_C);
-
-    // Reset the device and exit
-    // cudaDeviceReset causes the driver to clean up all state. While
-    // not mandatory in normal operation, it is good practice.  It is also
-    // needed to ensure correct operation when the application is being
-    // profiled. Calling cudaDeviceReset causes all profile data to be
-    // flushed before the application exits
-    err = cudaDeviceReset();
-
-    if (err != cudaSuccess)
-    {
-        fprintf(stderr, "Failed to deinitialize the device! error=%s\n", cudaGetErrorString(err));
-        exit(EXIT_FAILURE);
-    }
 
     printf("Done\n");
     return 0;
