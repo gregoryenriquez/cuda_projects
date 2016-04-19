@@ -1,22 +1,3 @@
-/**
- * Copyright 1993-2015 NVIDIA Corporation.  All rights reserved.
- *
- * Please refer to the NVIDIA end user license agreement (EULA) associated
- * with this source code for terms and conditions that govern your use of
- * this software. Any use, reproduction, disclosure, or distribution of
- * this software and related documentation outside the terms of the EULA
- * is strictly prohibited.
- *
- */
-
-/**
- * Vector addition: C = A + B.
- *
- * This sample is a very basic sample that implements element by element
- * vector addition. It is the same as the sample illustrating Chapter 2
- * of the programming guide with some additions like error checking.
- */
-
 #include <stdio.h>
 
 // For the CUDA runtime routines (prefixed with "cuda_")
@@ -56,10 +37,7 @@ __global__ void wordSearch(int itemsInBuffer, char* phrase, int phraseLen) {
     printf("TEXT_BUFFER[%d] is: %s ", blockIdx.x, TEXT_BUFFER[blockIdx.x]);
     printf("phraseLen is: %d ", phraseLen);
     int containsMatch = 0;
-    // int spaceAsciiVal = 32;
-    // const char space = (char)spaceAsciiVal;
 
-    // int charIdx = 0; // set starting char position
     if (blockIdx.x < itemsInBuffer) {
         int strLen = 0;
         for (int i = 0; TEXT_BUFFER[blockIdx.x][i] != '\0'; i++) {
@@ -95,52 +73,8 @@ __global__ void wordSearch(int itemsInBuffer, char* phrase, int phraseLen) {
 
 }
 
-// __global__ void wordSearch(const char *textBuffer, int textLen, int itemsInBuffer, char* phrase, int phraseLen, bool *matches) {
-//     printf("wordSearch() is called, blockIdx is: %d ", blockIdx.x);
-//     printf("phrase is: %s ", phrase);
-//     printf("textBuffer[%d] is: %s ", blockIdx.x, textBuffer[blockIdx.x]);
-//     printf("phraseLen is: %d ", phraseLen);
-// 	int textIdx = blockIdx.x;
-// 	int containsMatch = 0;
-// 	int spaceAsciiVal = 32;
-// 	const char space = (char)spaceAsciiVal;
 
-// 	int charIdx = blockIdx.x * textLen; // set starting char position
-// 	if (textIdx < itemsInBuffer) {
-//         printf("textIdx < itemsInBuffer = true\n");
-// 		while (charIdx < ((blockIdx.x + 1) * textLen)) { // check end position = start of next block
-//             // printf("charIdx < ((blockIdx.x + 1) * textLen) = true\n");
-// 			if (textBuffer[charIdx] == phrase[0]) {
-//                 printf("textBuffer[charIdx] == phrase[0] = true\n");
-// 				int wordLen = 1;
-// 				charIdx++;
-// 				while (textBuffer[charIdx] == phrase[wordLen] && wordLen < phraseLen) {
-//                     printf("textBuffer[charIdx] == phrase[wordLen] && wordLen < phraseLen = true\n");
-// 					charIdx++;
-// 					wordLen++;
-// 					if (wordLen == phraseLen && textBuffer[charIdx] == space) {
-// 						containsMatch = 1;
-// 						matches[textIdx] = 1;
-//                         printf("matches[textIdx] = %d text is %s\n", textIdx, textBuffer);
-// 						break;
-// 					}
-// 				}
-// 				if (containsMatch == 1) {
-//                     printf("Match found in block: %d, \n", textIdx);
-// 					return;
-// 				}
-// 			}
-//             charIdx++;
-// 		}
-// 	}
-// 	matches[textIdx] = 0;
-
-
-// }
-
-/**
- * Host main routine
- */
+/* HOST MAIN ROUTINE */
 int
 main(int argc, char **argv)
 {
@@ -152,9 +86,6 @@ main(int argc, char **argv)
 	char* filePath = argv[1];
 	char* phrase = argv[2];
 
-    //for debugging
-    // const int numOfEntriesToRead = MAX_TEXT_BLOCKS;
-
 	int phraseLen = 0;
 	for (int i = 0; phrase[i] != '\0'; i++) {
 		if (i == 1000) break;
@@ -164,22 +95,13 @@ main(int argc, char **argv)
     // Error code to check return values for CUDA calls
     cudaError_t err = cudaSuccess;
 
-    // TODO: remove start and end spaces from query
-
-    // const int maxChars = 10000;  // 40000 bytes = 40kb per line
-    // const int *maxCharsPtr = &maxChars;
-    // const int maxBlocksInBuffer = numOfEntriesToRead; // 100 blocks o text
-    // const int *maxBlocksInBufferPtr = &maxBlocksInBuffer;
-    const int h_bufferSize = MAX_CHAR_SIZE * MAX_TEXT_BLOCKS; // 4000000 bytes of chars
+    const int h_bufferSize = MAX_CHAR_SIZE * MAX_TEXT_BLOCKS; // 4000000 bytes of chars = 4MB
     const char* reviewIdentifier = "review/text";
-    char hBuffer[MAX_TEXT_BLOCKS][MAX_CHAR_SIZE]; // 
+    char hBuffer[MAX_TEXT_BLOCKS][MAX_CHAR_SIZE];
 
     printf("Size of hbuffer: %d", (int)sizeof(hBuffer));
 
-    // const int numOfLinesToSearch = numOfEntriesToRead;
     bool *matches = (bool *)malloc(sizeof(bool) * MAX_TEXT_BLOCKS);
-    // int matchesSize = MAX_TEXT_BLOCKS * sizeof(bool);
-
     if (hBuffer == NULL) {
     	printf("Failed to create buffer\n");
     }
@@ -187,14 +109,8 @@ main(int argc, char **argv)
     printf("[char text blocks of %d chars max]\n", MAX_CHAR_SIZE);
     printf("[host buffer of %d chars\n", h_bufferSize);
 
-    FILE *file = fopen(filePath, "r");
-    int lineId = 0;
-    // int bufferCount = 0;
-    int lineCount = 0;
-
-    // initialize matches
-    // bool *d_matches = NULL;
-    // size_t d_matchesSize = sizeof(bool) * maxBlocksInBuffer; // HACK, will only work with 1 block!!!
+    /* DEVICE ALLOCATE MEMORY */
+    /* Allocate memory for global variable MATCHES on device */
     err = cudaMalloc((void **)&MATCHES, sizeof(bool) * MAX_TEXT_BLOCKS);
     if (err != cudaSuccess)
     {
@@ -202,60 +118,27 @@ main(int argc, char **argv)
         exit(EXIT_FAILURE);
     }
 
-    // err = cudaMemcpy(d_matches, matches, d_matchesSize, cudaMemcpyHostToDevice);
-    // if (err != cudaSuccess)
-    // {
-    //     fprintf(stderr, "Failed to mem copy matches array (error code %s)!\n", cudaGetErrorString(err));
-    //     exit(EXIT_FAILURE);
-    // }    
-
-    /* DEVICE ALLOCATE MEMORY */
-    char *d_text = NULL;
-    size_t d_bufferSize = h_bufferSize * sizeof(char);
-    err = cudaMalloc((void **)&d_text, d_bufferSize);
-
-    if (err != cudaSuccess)
-    {
-        fprintf(stderr, "Failed to allocate text buffer hBuffer (error code %s)!\n", cudaGetErrorString(err));
-        exit(EXIT_FAILURE);
-    }
-
-    // int *d_textLen = NULL;
-    // size_t d_textLenSize = sizeof(int);
-    // err = cudaMalloc((void **)&d_textLen, d_textLenSize);
-    // if (err != cudaSuccess)
-    // {
-    //     fprintf(stderr, "Failed to allocate text buffer char len textLen (error code %s)!\n", cudaGetErrorString(err));
-    //     exit(EXIT_FAILURE);
-    // }
-
-    // int *d_textBlocks = NULL;
-    // size_t d_textBlockSize = sizeof(int);
-    // err = cudaMalloc((void **)&d_textBlocks, d_textBlockSize);
-    // if (err != cudaSuccess)
-    // {
-    //     fprintf(stderr, "Failed to allocate num of text blocks textBlocks (error code %s)!\n", cudaGetErrorString(err));
-    //     exit(EXIT_FAILURE);
-    // }
-
+    /* Allocate memory on device for command line argument phrase */
     char *d_phrase = NULL;
     size_t d_phraseSize = phraseLen * sizeof(char);
     err = cudaMalloc((void **)&d_phrase, d_phraseSize);
-    if (err != cudaSuccess)
-    {
+    if (err != cudaSuccess) {
         fprintf(stderr, "Failed to allocate char array phrase (error code %s)!\n", cudaGetErrorString(err));
         exit(EXIT_FAILURE);
     }
 
+    /* Allocate memory on device for phrase length */
     int *d_phraseLen = NULL;
     size_t d_phraseLenSize = sizeof(int);
     err = cudaMalloc((void **)&d_phraseLen, d_phraseLenSize);
-
-    if (err != cudaSuccess)
-    {
+    if (err != cudaSuccess) {
         fprintf(stderr, "Failed to allocate phrase length phraseLen (error code %s)!\n", cudaGetErrorString(err));
         exit(EXIT_FAILURE);
     }
+
+    FILE *file = fopen(filePath, "r");
+    int lineId = 0;
+    int lineCount = 0;
 
     if (file != NULL) {
     	char line[MAX_CHAR_SIZE];
@@ -269,74 +152,34 @@ main(int argc, char **argv)
     		strncpy(firstWord, line, tempLen);
 
     		if (strncmp(reviewIdentifier, firstWord, tempLen) == 0) {
-                if (lineCount % 11 == 0) {
+                if (lineCount % 10 == 0) {
                     printf("Line: %d\n", lineCount);
                 }
 
-
-        		printf("%s\n", line);
-
-
+        		// printf("%s\n", line);
                 hBufferPtr = hBuffer[lineCount]; // shift ptr to next block
-                // for (int i = 0; i < strlen(line); i++) {
-                //     hBuffer[lineCount * maxChars + i] = line[i];
-                // }
-
-
                 strncpy(hBufferPtr, line, MAX_CHAR_SIZE);
-                printf("hBufferPtr = %p", hBufferPtr);
-                // printf(" end of hbuffer = %p\n", &hBuffer[MAX_CHAR_SIZE - 1][MAX_TEXT_BLOCKS - 1]);                  
+                // printf("hBufferPtr = %p", hBufferPtr);
                 lineCount++;
 
+                /* Host text buffer hBuffer is full and ready to be copied to device TEXT_BUFFER */
         		if (lineCount == MAX_TEXT_BLOCKS) {
-        			printf("Host buffer is full, copying memory to device\n");
+        			printf("[Host buffer is full, copying memory to device]\n");
 
-                    // for (int i = 0; i < sizeof(hBuffer); i++) {
-                    //     printf("%c", hBuffer[i]);
-                    // }
-                    // printf("\n");
-                    // exit(0);
-
-        		    /* COPY MEMORY */
-        			// copy text buffer
+        		    /* COPY MEMORY FROM HOST TO DEVICE*/
+        			/* Copy text buffer to device*/
                     printf("[Copying text buffer to device...]\n");
                     for (int i = 0; i < MAX_TEXT_BLOCKS; i++) {
                         printf("%s\n", hBuffer[i]);                        
                     }
 
-        		    // err = cudaMemcpy(d_text, hBuffer, d_bufferSize, cudaMemcpyHostToDevice);
-        		    // if (err != cudaSuccess)
-        		    // {
-        		    //     fprintf(stderr, "Failed to copy text buffer hBuffer (error code %s)!\n", cudaGetErrorString(err));
-        		    //     exit(EXIT_FAILURE);
-        		    // }
-
                     err = cudaMemcpyToSymbol(TEXT_BUFFER, hBuffer, BUFFER_SIZE, 0, cudaMemcpyHostToDevice);
-                    if (err != cudaSuccess)
-                    {
+                    if (err != cudaSuccess) {
                         fprintf(stderr, "Failed to copy text buffer hBuffer (error code %s)!\n", cudaGetErrorString(err));
                         exit(EXIT_FAILURE);
                     }                    
 
-        		    //copy text len
-              //       printf("[Copying text len to device...]\n");
-        		    // err = cudaMemcpy(d_textLen, maxCharsPtr, d_textLenSize, cudaMemcpyHostToDevice);
-              //       if (err != cudaSuccess)
-              //       {
-              //           fprintf(stderr, "Failed to copy text length d_textLen (error code %s)!\n", cudaGetErrorString(err));
-              //           exit(EXIT_FAILURE);
-              //       }
-
-        		    //copy itemsInBuffer
-                    // printf("[Copying num of blocks to device...]\n");
-                    // err = cudaMemcpy(d_textBlocks, maxBlocksInBufferPtr, d_textBlockSize, cudaMemcpyHostToDevice);
-                    // if (err != cudaSuccess)
-                    // {
-                    //     fprintf(stderr, "Failed to copy block size d_textBlocks (error code %s)!\n", cudaGetErrorString(err));
-                    //     exit(EXIT_FAILURE);
-                    // }
-
-        		    //copy phrase
+        		    /* Copy phrase to device */
                     printf("[Copying phrase to device...]\n");
                     err = cudaMemcpy(d_phrase, phrase, d_phraseSize, cudaMemcpyHostToDevice);
                     if (err != cudaSuccess)
@@ -345,7 +188,7 @@ main(int argc, char **argv)
                         exit(EXIT_FAILURE);
                     }
 
-        		    // copy prhase len
+        		    /* Copy phrase length to device */
                     printf("[Copying phrase len to device...]\n");
                     err = cudaMemcpy(d_phraseLen, &phraseLen, d_phraseLenSize, cudaMemcpyHostToDevice);
                     if (err != cudaSuccess)
@@ -354,51 +197,21 @@ main(int argc, char **argv)
                         exit(EXIT_FAILURE);
                     }
 
-            		// run device function
+            		/* Initialize and launch CUDA kernel */
                     printf("[Initializing CUDA kernel and launching]\n");
-
-                    // strcpy(d_phrase, phrase);
-                    // d_textLen = maxChars;
-                    // d_textBlocks = maxBlocksInBuffer;
-                    // d_phraseLen = phraseLen;
-
-                    // printf("d_textLen: %d\n", d_textLen);
-                    // printf("d_textBlocks: %d\n", d_textBlocks);
-                    // printf("d_phrase: %s\n", d_phrase);
-                    // printf("d_phraseLen: %d\n", d_phraseLen);
-                    // printf("d_matches: %d\n", d_matches);
-                    // printf("d_text: %s\n", d_text);
-
-                    /* DEBUG
-                    cudaFree(d_text);
-                    cudaFree(d_textLen);
-                    cudaFree(d_phrase);
-                    cudaFree(d_phraseLen);
-                    cudaFree(d_textBlocks);
-                    exit(0);
-                    */
-                    printf("size of matches: %zu\n", sizeof(bool) * MAX_TEXT_BLOCKS);
-                    // printf("size of d_matches: %zu\n", sizeof(d_matches));
-
                     wordSearch<<<MAX_TEXT_BLOCKS,1>>>(MAX_TEXT_BLOCKS, d_phrase, phraseLen);
-                    // wordSearch<<<maxBlocksInBuffer,1>>>(d_text, maxChars, maxBlocksInBuffer, d_phrase, phraseLen, d_matches);
-        			// wordSearch<<<numOfBlocks,1>>>(d_text, d_textLen, d_textBlocks, d_phrase, d_phraseLen, d_matches);
                     err = cudaGetLastError();
-        		    if (err != cudaSuccess)
-        		    {
+        		    if (err != cudaSuccess) {
         		        fprintf(stderr, "Failed to launch kernel (error code %s)!\n", cudaGetErrorString(err));
         		        exit(EXIT_FAILURE);
         		    }
-                    // cudaFree(d_text);
-                    // cudaFree(d_textLen);
-                    cudaFree(d_phrase);
-                    cudaFree(d_phraseLen);
-                    // cudaFree(d_textBlocks);
 
-                    printf("[copying device memory matches to host memory]\n");
+                    // cudaFree(d_phrase);
+                    // cudaFree(d_phraseLen);
 
+                    /* Retrieve MATCHES result from device to host*/
+                    printf("[Copying device memory matches to host memory]\n");
                     err = cudaMemcpyFromSymbol(matches, MATCHES, sizeof(bool) * MAX_TEXT_BLOCKS, 0, cudaMemcpyDeviceToHost);
-                    // err = cudaMemcpy(matches, d_matches, matchesSize, cudaMemcpyDeviceToHost);
                     if (err != cudaSuccess) {
                         fprintf(stderr, "Failed to copy device matches array to host (error code %s)!\n", cudaGetErrorString(err));
                         exit(EXIT_FAILURE);
@@ -413,30 +226,19 @@ main(int argc, char **argv)
                     }
                     printf("\n");
 
-                    // cudaFree(d_matches);
-                    exit(0);
-//        		    int threadsPerBlock = 256;
-//        		    int blocksPerGrid =(numElements + threadsPerBlock - 1) / threadsPerBlock;
-//        		    printf("CUDA kernel launch with %d blocks of %d threads\n", blocksPerGrid, threadsPerBlock);
-//        		    vectorAdd<<<blocksPerGrid, threadsPerBlock>>>(d_A, d_B, d_C, numElements);
-
-
+                    // exit(0);
 
         			// end cuda
-        			lineCount = 0;
-                    printf("[Setting hbuffer to empty via memset\n");
-        			memset(&hBuffer[0], 0, sizeof(hBuffer)); // clear the buffer
+        			// lineCount = 0;
+           //          printf("[Setting hbuffer to empty via memset\n");
+        			// memset(&hBuffer[0], 0, sizeof(hBuffer)); // clear the buffer
                     // set the buffer ptr back to the beginning
-                    printf("[Settings hBufferPtr back to the beginning\n");
-        			hBufferPtr = hBuffer[0];
+           //          printf("[Settings hBufferPtr back to the beginning\n");
+        			// hBufferPtr = hBuffer[0];
 
                     break;
 
-        		} else {
-
         		}
-
-
     		}
     		lineId++;
     	}
@@ -445,7 +247,7 @@ main(int argc, char **argv)
     	return 0;
     }
 
-    printf("End search\n");
+    printf("End CUDA search\n");
 
     fclose(file);
     free(matches);
