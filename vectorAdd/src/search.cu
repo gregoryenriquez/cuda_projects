@@ -24,20 +24,20 @@ __global__ void wordSearch(int itemsInBuffer, char* phrase, int phraseLen) {
     // printf("wordSearch() is called, blockIdx is: %d, phrase is %s, phraseLen is %d, TEXT_BUFFER[%d] is: %s, ", 
             // blockIdx.x, phrase, phraseLen, blockIdx.x, TEXT_BUFFER[blockIdx.x]);
 
-    if (blockIdx.x < itemsInBuffer) {
+    if (threadIdx.x < itemsInBuffer) {
         int strLen = 0;
-        for (int i = 0; TEXT_BUFFER[blockIdx.x][i] != '\0'; i++) {
+        for (int i = 0; TEXT_BUFFER[threadIdx.x][i] != '\0'; i++) {
             strLen++;
         }
         for (int charIdx = 0; charIdx < strLen; charIdx++) {
-            if (TEXT_BUFFER[blockIdx.x][charIdx] == phrase[0]) {
+            if (TEXT_BUFFER[threadIdx.x][charIdx] == phrase[0]) {
                 int wordLen = 1;
                 charIdx++;
-                while (TEXT_BUFFER[blockIdx.x][charIdx] == phrase[wordLen] && wordLen < phraseLen) {
+                while (TEXT_BUFFER[threadIdx.x][charIdx] == phrase[wordLen] && wordLen < phraseLen) {
                     charIdx++;
                     wordLen++;
                     if (wordLen == phraseLen) {
-                        MATCHES[blockIdx.x] = 1;
+                        MATCHES[threadIdx.x] = 1;
                         // printf("MATCHES[%d] = %d text is %s\n", blockIdx.x, MATCHES[blockIdx.x], TEXT_BUFFER[blockIdx.x]);
                         return;
                     }
@@ -45,7 +45,7 @@ __global__ void wordSearch(int itemsInBuffer, char* phrase, int phraseLen) {
             }
         }
     }
-    MATCHES[blockIdx.x] = 0;
+    MATCHES[threadIdx.x] = 0;
 }
 
 
@@ -78,7 +78,7 @@ main(int argc, char **argv)
     const char* reviewIdentifier = "review/text";
     char hBuffer[MAX_TEXT_BLOCKS][MAX_CHAR_SIZE];
 
-    printf("Size of hbuffer: %d", (int)sizeof(hBuffer));
+    printf("Size of hbuffer: %d\n", (int)sizeof(hBuffer));
 
     bool *matches = (bool *)malloc(sizeof(bool) * MAX_TEXT_BLOCKS);
     if (hBuffer == NULL) {
@@ -140,10 +140,6 @@ main(int argc, char **argv)
             strncpy(firstWord, line, tempLen);
 
             if (strncmp(reviewIdentifier, firstWord, tempLen) == 0) {
-                if (lineCount % 50 == 0) {
-                    printf("Line: %d\n", lineCount);
-                }
-
                 hBufferPtr = hBuffer[lineCount]; // shift ptr to next block
                 strncpy(hBufferPtr, line, MAX_CHAR_SIZE);
                 lineCount++;
@@ -185,7 +181,7 @@ main(int argc, char **argv)
                     begin = clock();
                     /* Initialize and launch CUDA kernel */
                     printf("[Initializing CUDA kernel and launching]\n");
-                    wordSearch<<<MAX_TEXT_BLOCKS,1>>>(MAX_TEXT_BLOCKS, d_phrase, phraseLen);
+                    wordSearch<<<1, MAX_TEXT_BLOCKS>>>(MAX_TEXT_BLOCKS, d_phrase, phraseLen);
                     err = cudaGetLastError();
                     if (err != cudaSuccess) {
                         fprintf(stderr, "Failed to launch kernel (error code %s)!\n", cudaGetErrorString(err));
@@ -236,12 +232,14 @@ main(int argc, char **argv)
 
     /* Performance Results */
     printf("|-------Performance-------|\n");
-    printf("Lines processed: 1100\n");
+    printf("Lines processed: 100\n");
     printf("Time spent in allocating device memory: %fs\n", timeSpentAllocatingDeviceMemory);
     printf("Time spent in copying 100 lines to device memory: %fs\n", timeSpentCopyingToDeviceMemory);
     printf("Time spent in executing kernel: %fs\n", timeSpentRunningKernel);
     printf("Time spent in copying matches result to host: %fs\n", timeSpentCopyingFromDeviceMemory);
-
+    printf("Total \"CUDA\" execution time: %fs\n", timeSpentCopyingToDeviceMemory + timeSpentRunningKernel +
+        timeSpentCopyingFromDeviceMemory);
+    printf("|-------Performance-------|\n");
     printf("Done\n");
     return 0;
 }
